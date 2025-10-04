@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {},
   "private": true,
+  "workspaces": ["apps/*", "libs/*"],
   "dependencies": {
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -54,6 +55,7 @@
     "vitest": "^3.0.0"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "frontend"
   ]
 }

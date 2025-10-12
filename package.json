@@ -4,8 +4,12 @@
   "license": "MIT",
   "scripts": {},
   "private": true,
-  "workspaces": ["apps/*", "libs/*"],
+  "workspaces": [
+    "apps/*",
+    "frontend"
+  ],
   "dependencies": {
+    "@supabase/supabase-js": "^2.74.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-router-dom": "6.29.0"
@@ -53,9 +57,5 @@
     "typescript-eslint": "^8.40.0",
     "vite": "^7.0.0",
     "vitest": "^3.0.0"
-  },
-  "workspaces": [
-    "apps/*",
-    "frontend"
-  ]
+  }
 }

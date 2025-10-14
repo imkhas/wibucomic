@@ -8,28 +8,36 @@ export function useComicPages(comicId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (comicId) {
-      fetchPages();
-    }
-  }, [comicId]);
-
-  async function fetchPages() {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('comic_pages')
-        .select('*')
-        .eq('comic_id', comicId)
-        .order('page_number', { ascending: true });
-
-      if (error) throw error;
-      setPages(data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch pages');
-    } finally {
+    if (!comicId) {
+      setPages([]);
+      setError(null);
       setLoading(false);
+      return;
     }
-  }
+
+    setLoading(true);
+    setError(null);
+
+    async function fetchPages() {
+      try {
+        const { data, error } = await supabase
+          .from('comic_pages')
+          .select('*')
+          .eq('comic_id', comicId)
+          .order('page_number', { ascending: true });
+
+        if (error) throw error;
+        setPages(data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch pages');
+        setPages([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchPages();
+  }, [comicId]);
 
   return { pages, loading, error };
 }

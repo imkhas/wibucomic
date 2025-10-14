@@ -19,7 +19,7 @@ export function Navbar({ currentPage, onNavigate, user, onAuthClick, onLogout }:
               className="flex items-center gap-2 text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors"
             >
               <BookOpen className="w-8 h-8" />
-              <span>ComicVerse</span>
+              <span>WibuComic</span>
             </button>
 
             <div className="hidden md:flex items-center gap-1">

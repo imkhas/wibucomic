@@ -1,7 +1,9 @@
-import { useComicPages } from '../hooks/useComicPages';
-import { useReadingProgress } from '../hooks/useReadingProgress';
+import { useState, useEffect } from 'react';
+import { useMangaDexChapters } from '../hooks/useMangaDex';
+import { useMangaDexReader } from '../hooks/useMangaDexReader';
 import { useAuth } from '../contexts/AuthContext';
 import { ComicReader } from '../components/ComicReader';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ReaderProps {
   comicId: string;
@@ -9,29 +11,67 @@ interface ReaderProps {
 }
 
 export function Reader({ comicId, onClose }: ReaderProps) {
-  const { pages, loading } = useComicPages(comicId);
   const { user } = useAuth();
-  const { progress, updateProgress } = useReadingProgress(user?.id, comicId);
+  const { chapters, loading: chaptersLoading } = useMangaDexChapters(comicId);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const { pages, loading: pagesLoading } = useMangaDexReader(selectedChapterId || '');
 
-  const handlePageChange = (page: number) => {
-    if (user) {
-      updateProgress(comicId, page);
+  // Auto-select first English chapter
+  useEffect(() => {
+    if (chapters.length > 0 && !selectedChapterId) {
+      const englishChapters = chapters
+        .filter(ch => ch.attributes.translatedLanguage === 'en')
+        .sort((a, b) => {
+          const chapterA = parseFloat(a.attributes.chapter || '0');
+          const chapterB = parseFloat(b.attributes.chapter || '0');
+          return chapterA - chapterB;
+        });
+      
+      if (englishChapters.length > 0) {
+        setSelectedChapterId(englishChapters[0].id);
+      }
+    }
+  }, [chapters, selectedChapterId]);
+
+  const englishChapters = chapters
+    .filter(ch => ch.attributes.translatedLanguage === 'en')
+    .sort((a, b) => {
+      const chapterA = parseFloat(a.attributes.chapter || '0');
+      const chapterB = parseFloat(b.attributes.chapter || '0');
+      return chapterA - chapterB;
+    });
+
+  const currentChapterIndex = englishChapters.findIndex(ch => ch.id === selectedChapterId);
+  const currentChapter = englishChapters[currentChapterIndex];
+
+  const goToNextChapter = () => {
+    if (currentChapterIndex < englishChapters.length - 1) {
+      setSelectedChapterId(englishChapters[currentChapterIndex + 1].id);
     }
   };
 
-  if (loading) {
+  const goToPrevChapter = () => {
+    if (currentChapterIndex > 0) {
+      setSelectedChapterId(englishChapters[currentChapterIndex - 1].id);
+    }
+  };
+
+  if (chaptersLoading || !selectedChapterId) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mx-auto mb-4"></div>
+          <p className="text-white">Loading chapters...</p>
+        </div>
       </div>
     );
   }
 
-  if (pages.length === 0) {
+  if (englishChapters.length === 0) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
         <div className="text-white text-center">
-          <p className="text-xl mb-4">No pages available</p>
+          <p className="text-xl mb-4">No English chapters available</p>
           <button
             onClick={onClose}
             className="px-6 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors"
@@ -43,12 +83,96 @@ export function Reader({ comicId, onClose }: ReaderProps) {
     );
   }
 
+  if (pagesLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mx-auto mb-4"></div>
+          <p className="text-white">Loading pages...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pages.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
+        <div className="text-white text-center">
+          <p className="text-xl mb-4">No pages available for this chapter</p>
+          <div className="flex gap-4 justify-center">
+            {currentChapterIndex > 0 && (
+              <button
+                onClick={goToPrevChapter}
+                className="flex items-center gap-2 px-6 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                Previous Chapter
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Go Back
+            </button>
+            {currentChapterIndex < englishChapters.length - 1 && (
+              <button
+                onClick={goToNextChapter}
+                className="flex items-center gap-2 px-6 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Next Chapter
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <ComicReader
-      pages={pages}
-      initialPage={progress?.current_page || 1}
-      onClose={onClose}
-      onPageChange={handlePageChange}
-    />
+    <>
+      <ComicReader
+        pages={pages}
+        initialPage={1}
+        onClose={onClose}
+        onPageChange={(page) => {
+          // Optional: Save reading progress
+          console.log('Page changed:', page);
+        }}
+      />
+      
+      {/* Chapter navigation overlay */}
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] bg-gray-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-full flex items-center gap-4">
+        <button
+          onClick={goToPrevChapter}
+          disabled={currentChapterIndex === 0}
+          className="flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed hover:text-blue-400 transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-sm">Prev</span>
+        </button>
+        
+        <div className="text-center">
+          <div className="text-sm font-medium">
+            Chapter {currentChapter?.attributes.chapter || 'Unknown'}
+          </div>
+          {currentChapter?.attributes.title && (
+            <div className="text-xs text-gray-400">
+              {currentChapter.attributes.title}
+            </div>
+          )}
+        </div>
+        
+        <button
+          onClick={goToNextChapter}
+          disabled={currentChapterIndex === englishChapters.length - 1}
+          className="flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed hover:text-blue-400 transition-colors"
+        >
+          <span className="text-sm">Next</span>
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+    </>
   );
 }

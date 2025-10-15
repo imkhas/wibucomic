@@ -1,20 +1,18 @@
 import { useState, useEffect } from 'react';
 import * as MangaDexAPI from '../services/mangadex';
-
-export interface MangaDexPage {
-  id: string;
-  page_number: number;
-  image_url: string;
-}
+import { ComicPage } from '../types/database';
 
 export function useMangaDexReader(chapterId: string) {
-  const [pages, setPages] = useState<MangaDexPage[]>([]);
+  const [pages, setPages] = useState<ComicPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (chapterId) {
       fetchPages();
+    } else {
+      setPages([]);
+      setLoading(false);
     }
   }, [chapterId]);
 
@@ -26,10 +24,12 @@ export function useMangaDexReader(chapterId: string) {
       const chapterData = await MangaDexAPI.getChapterPages(chapterId);
       const { baseUrl, chapter } = chapterData;
 
-      const pageList: MangaDexPage[] = chapter.data.map((fileName, index) => ({
+      const pageList: ComicPage[] = chapter.data.map((fileName, index) => ({
         id: `${chapterId}-${index}`,
+        comic_id: chapterId,
         page_number: index + 1,
         image_url: MangaDexAPI.getChapterImageUrl(baseUrl, chapter.hash, fileName),
+        created_at: new Date().toISOString(),
       }));
 
       setPages(pageList);

@@ -1,5 +1,6 @@
-import { Book, BookMarked, Play, Clock } from 'lucide-react';
-import { useComic } from '../hooks/useComics';
+import { Book, BookMarked, Play, Clock, List } from 'lucide-react';
+import { useState } from 'react';
+import { useMangaDexManga, useMangaDexChapters } from '../hooks/useMangaDex';
 import { useAuth } from '../contexts/AuthContext';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useReadingProgress } from '../hooks/useReadingProgress';
@@ -11,10 +12,12 @@ interface ComicDetailProps {
 }
 
 export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProps) {
-  const { comic, loading } = useComic(comicId);
+  const { comic, loading } = useMangaDexManga(comicId);
+  const { chapters, loading: chaptersLoading } = useMangaDexChapters(comicId);
   const { user } = useAuth();
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks(user?.id);
   const { progress } = useReadingProgress(user?.id, comicId);
+  const [showChapters, setShowChapters] = useState(false);
 
   if (loading) {
     return (
@@ -27,7 +30,13 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
   if (!comic) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">Comic not found</p>
+        <p className="text-gray-500 text-lg">Manga not found</p>
+        <button
+          onClick={onBack}
+          className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+        >
+          ← Go Back
+        </button>
       </div>
     );
   }
@@ -40,6 +49,15 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
       addBookmark(comic.id);
     }
   };
+
+  // Get English chapters and sort by chapter number
+  const englishChapters = chapters
+    .filter(ch => ch.attributes.translatedLanguage === 'en')
+    .sort((a, b) => {
+      const chapterA = parseFloat(a.attributes.chapter || '0');
+      const chapterB = parseFloat(b.attributes.chapter || '0');
+      return chapterA - chapterB;
+    });
 
   return (
     <div className="space-y-8">
@@ -68,10 +86,11 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
 
           <button
             onClick={onStartReading}
-            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            disabled={englishChapters.length === 0}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Play className="w-5 h-5" />
-            {progress ? `Continue Reading (Page ${progress.current_page})` : 'Start Reading'}
+            {englishChapters.length === 0 ? 'No Chapters Available' : 'Start Reading'}
           </button>
 
           {user && (
@@ -85,6 +104,16 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
             >
               <BookMarked className="w-5 h-5" />
               {isBookmarked(comic.id) ? 'Remove Bookmark' : 'Add Bookmark'}
+            </button>
+          )}
+
+          {englishChapters.length > 0 && (
+            <button
+              onClick={() => setShowChapters(!showChapters)}
+              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-lg font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              <List className="w-5 h-5" />
+              {showChapters ? 'Hide Chapters' : `View ${englishChapters.length} Chapters`}
             </button>
           )}
         </div>
@@ -112,7 +141,7 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
             </span>
             <span className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium flex items-center gap-2">
               <Book className="w-4 h-4" />
-              {comic.total_pages} Pages
+              {englishChapters.length} Chapters
             </span>
           </div>
 
@@ -122,25 +151,52 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
                 <Clock className="w-5 h-5" />
                 <span className="font-semibold">Your Progress</span>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-blue-700">
-                  <span>Page {progress.current_page} of {comic.total_pages}</span>
-                  <span>{Math.round((progress.current_page / comic.total_pages) * 100)}%</span>
-                </div>
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(progress.current_page / comic.total_pages) * 100}%` }}
-                  />
-                </div>
-              </div>
+              <p className="text-sm text-blue-700">
+                Last read: Chapter {progress.current_page}
+              </p>
             </div>
           )}
 
           {comic.description && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Description</h2>
-              <p className="text-gray-700 leading-relaxed">{comic.description}</p>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{comic.description}</p>
+            </div>
+          )}
+
+          {showChapters && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Chapters</h2>
+              {chaptersLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {englishChapters.map((chapter) => (
+                    <button
+                      key={chapter.id}
+                      onClick={() => {
+                        // TODO: Navigate to reader with chapter ID
+                        console.log('Read chapter:', chapter.id);
+                      }}
+                      className="w-full text-left p-4 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                    >
+                      <div className="font-semibold text-gray-900">
+                        Chapter {chapter.attributes.chapter || 'Unknown'}
+                      </div>
+                      {chapter.attributes.title && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          {chapter.attributes.title}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {chapter.attributes.pages} pages
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

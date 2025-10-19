@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMangaDexChapters } from '../hooks/useMangaDex';
 import { useMangaDexReader } from '../hooks/useMangaDexReader';
 import { useAuth } from '../contexts/AuthContext';
+import { useReadingProgress } from '../hooks/useReadingProgress';
 import { ComicReader } from '../components/ComicReader';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -14,6 +15,7 @@ interface ReaderProps {
 export function Reader({ comicId, chapterId, onClose }: ReaderProps) {
   const { user } = useAuth();
   const { chapters, loading: chaptersLoading } = useMangaDexChapters(comicId);
+  const { updateProgress } = useReadingProgress(user?.id, comicId);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapterId || null);
   const { pages, loading: pagesLoading } = useMangaDexReader(selectedChapterId || '');
 
@@ -52,6 +54,23 @@ export function Reader({ comicId, chapterId, onClose }: ReaderProps) {
       setSelectedChapterId(englishChapters[currentChapterIndex - 1].id);
     }
   };
+
+  // Save reading progress
+  const handlePageChange = useCallback((page: number) => {
+    if (user && currentChapter) {
+      // Convert chapter number to a numeric value for progress tracking
+      const chapterNumber = parseFloat(currentChapter.attributes.chapter || '0');
+      
+      // Save as chapter number (you can also save page within chapter if needed)
+      updateProgress(comicId, chapterNumber);
+      
+      console.log('Progress saved:', {
+        manga: comicId,
+        chapter: chapterNumber,
+        page: page,
+      });
+    }
+  }, [user, comicId, currentChapter, updateProgress]);
 
   if (chaptersLoading || !selectedChapterId) {
     return (
@@ -136,12 +155,7 @@ export function Reader({ comicId, chapterId, onClose }: ReaderProps) {
         pages={pages}
         initialPage={1}
         onClose={onClose}
-        onPageChange={(page) => {
-          // Optional: Save reading progress
-          if (user) {
-            console.log('Page changed:', page, 'Chapter:', selectedChapterId);
-          }
-        }}
+        onPageChange={handlePageChange}
       />
       
       {/* Chapter navigation overlay */}
@@ -177,6 +191,13 @@ export function Reader({ comicId, chapterId, onClose }: ReaderProps) {
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
+
+      {/* Progress saved indicator (optional) */}
+      {user && (
+        <div className="fixed bottom-4 right-4 z-[60] bg-gray-900/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-xs">
+          Progress auto-saved
+        </div>
+      )}
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { ToastProvider, useToast } from '../contexts/ToastContext';
 import { Navbar } from '../components/Navbar';
 import { AuthModal } from '../components/AuthModal';
 import { Home } from '../pages/Home';
@@ -12,62 +13,125 @@ import { Comic } from '../types/database';
 
 type Page = 'home' | 'browse' | 'library' | 'profile' | 'comic-detail' | 'reader';
 
+interface AppState {
+  page: Page;
+  selectedComic: Comic | null;
+  selectedChapterId: string | null;
+}
+
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [selectedComic, setSelectedComic] = useState<Comic | null>(null);
+  const [state, setState] = useState<AppState>({
+    page: 'home',
+    selectedComic: null,
+    selectedChapterId: null,
+  });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut } = useAuth();
+  const toast = useToast();
 
-  const handleComicClick = (comic: Comic) => {
-    setSelectedComic(comic);
-    setCurrentPage('comic-detail');
+  const navigateTo = (page: Page) => {
+    if (page === 'library' && !user) {
+      toast.warning('Please sign in to view your library');
+      setShowAuthModal(true);
+      return;
+    }
+    if (page === 'profile' && !user) {
+      toast.warning('Please sign in to view your profile');
+      setShowAuthModal(true);
+      return;
+    }
+    setState(prev => ({ ...prev, page }));
   };
 
-  const handleStartReading = () => {
-    if (selectedComic) {
-      setCurrentPage('reader');
-    }
+  const handleComicClick = (comic: Comic) => {
+    setState({
+      page: 'comic-detail',
+      selectedComic: comic,
+      selectedChapterId: null,
+    });
+  };
+
+  const handleStartReading = (chapterId?: string) => {
+    setState(prev => ({
+      ...prev,
+      page: 'reader',
+      selectedChapterId: chapterId || null,
+    }));
   };
 
   const handleCloseReader = () => {
-    setCurrentPage('comic-detail');
+    setState(prev => ({
+      ...prev,
+      page: 'comic-detail',
+    }));
   };
 
   const handleLogout = async () => {
-    await signOut();
-    setCurrentPage('home');
+    try {
+      await signOut();
+      setState({
+        page: 'home',
+        selectedComic: null,
+        selectedChapterId: null,
+      });
+      toast.success('Logged out successfully');
+    } catch (error) {
+      toast.error('Failed to logout');
+    }
+  };
+
+  const handleBack = () => {
+    setState(prev => ({
+      ...prev,
+      page: 'browse',
+      selectedComic: null,
+    }));
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    toast.success('Welcome back!');
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {currentPage !== 'reader' && (
+      {state.page !== 'reader' && (
         <Navbar
-          currentPage={currentPage}
-          onNavigate={(page) => setCurrentPage(page as Page)}
+          currentPage={state.page}
+          onNavigate={navigateTo}
           user={user}
           onAuthClick={() => setShowAuthModal(true)}
           onLogout={handleLogout}
         />
       )}
 
-      <main className={currentPage !== 'reader' ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' : ''}>
-        {currentPage === 'home' && <Home onComicClick={handleComicClick} />}
-        {currentPage === 'browse' && <Browse onComicClick={handleComicClick} />}
-        {currentPage === 'library' && <Library onComicClick={handleComicClick} />}
-        {currentPage === 'profile' && <Profile />}
-        {currentPage === 'comic-detail' && selectedComic && (
+      <main className={state.page !== 'reader' ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' : ''}>
+        {state.page === 'home' && <Home onComicClick={handleComicClick} />}
+        {state.page === 'browse' && <Browse onComicClick={handleComicClick} />}
+        {state.page === 'library' && <Library onComicClick={handleComicClick} />}
+        {state.page === 'profile' && <Profile />}
+        {state.page === 'comic-detail' && state.selectedComic && (
           <ComicDetail
-            comicId={selectedComic.id}
+            comicId={state.selectedComic.id}
             onStartReading={handleStartReading}
-            onBack={() => setCurrentPage('browse')}
+            onBack={handleBack}
           />
         )}
-        {currentPage === 'reader' && selectedComic && (
-          <Reader comicId={selectedComic.id} onClose={handleCloseReader} />
+        {state.page === 'reader' && state.selectedComic && (
+          <Reader 
+            comicId={state.selectedComic.id}
+            chapterId={state.selectedChapterId}
+            onClose={handleCloseReader} 
+          />
         )}
       </main>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
     </div>
   );
 }
@@ -75,7 +139,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 }

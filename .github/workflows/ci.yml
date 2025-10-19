@@ -1,8 +1,3 @@
-# Create the directories
-mkdir .github\workflows -Force
-
-# Create the CI file
-@"
 name: CI
 
 on:
@@ -29,9 +24,3 @@ jobs:
     
     - name: Build frontend
       run: npx nx build frontend
-"@ | Out-File -FilePath .github\workflows\ci.yml -Encoding utf8
-
-# Commit and push
-git add .github
-git commit -m "fix: add proper CI workflow for Nx"
-git push

@@ -7,7 +7,7 @@ import { useReadingProgress } from '../hooks/useReadingProgress';
 
 interface ComicDetailProps {
   comicId: string;
-  onStartReading: () => void;
+  onStartReading: (chapterId?: string) => void;
   onBack: () => void;
 }
 
@@ -18,6 +18,28 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks(user?.id);
   const { progress } = useReadingProgress(user?.id, comicId);
   const [showChapters, setShowChapters] = useState(false);
+
+  // Get English chapters and sort by chapter number
+  const englishChapters = chapters
+    .filter(ch => ch.attributes.translatedLanguage === 'en')
+    .sort((a, b) => {
+      const chapterA = parseFloat(a.attributes.chapter || '0');
+      const chapterB = parseFloat(b.attributes.chapter || '0');
+      return chapterA - chapterB;
+    });
+
+  const handleBookmarkToggle = () => {
+    if (!user) return;
+    if (isBookmarked(comic!.id)) {
+      removeBookmark(comic!.id);
+    } else {
+      addBookmark(comic!.id);
+    }
+  };
+
+  const handleReadChapter = (chapterId: string) => {
+    onStartReading(chapterId);
+  };
 
   if (loading) {
     return (
@@ -41,34 +63,17 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
     );
   }
 
-  const handleBookmarkToggle = () => {
-    if (!user) return;
-    if (isBookmarked(comic.id)) {
-      removeBookmark(comic.id);
-    } else {
-      addBookmark(comic.id);
-    }
-  };
-
-  // Get English chapters and sort by chapter number
-  const englishChapters = chapters
-    .filter(ch => ch.attributes.translatedLanguage === 'en')
-    .sort((a, b) => {
-      const chapterA = parseFloat(a.attributes.chapter || '0');
-      const chapterB = parseFloat(b.attributes.chapter || '0');
-      return chapterA - chapterB;
-    });
-
   return (
     <div className="space-y-8">
       <button
         onClick={onBack}
-        className="text-blue-600 hover:text-blue-700 font-medium"
+        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
       >
-        ← Back
+        ← Back to Browse
       </button>
 
       <div className="grid md:grid-cols-[300px,1fr] gap-8">
+        {/* Left Column - Cover and Actions */}
         <div className="space-y-4">
           <div className="aspect-[2/3] bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden shadow-lg">
             {comic.cover_image ? (
@@ -76,6 +81,7 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
                 src={comic.cover_image}
                 alt={comic.title}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -85,7 +91,7 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
           </div>
 
           <button
-            onClick={onStartReading}
+            onClick={() => englishChapters.length > 0 && handleReadChapter(englishChapters[0].id)}
             disabled={englishChapters.length === 0}
             className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -118,6 +124,7 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
           )}
         </div>
 
+        {/* Right Column - Details */}
         <div className="space-y-6">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">{comic.title}</h1>
@@ -172,29 +179,35 @@ export function ComicDetail({ comicId, onStartReading, onBack }: ComicDetailProp
                   <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {englishChapters.map((chapter) => (
-                    <button
-                      key={chapter.id}
-                      onClick={() => {
-                        // TODO: Navigate to reader with chapter ID
-                        console.log('Read chapter:', chapter.id);
-                      }}
-                      className="w-full text-left p-4 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                    >
-                      <div className="font-semibold text-gray-900">
-                        Chapter {chapter.attributes.chapter || 'Unknown'}
-                      </div>
-                      {chapter.attributes.title && (
-                        <div className="text-sm text-gray-600 mt-1">
-                          {chapter.attributes.title}
+                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+                  {englishChapters.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No English chapters available</p>
+                  ) : (
+                    englishChapters.map((chapter, index) => (
+                      <button
+                        key={chapter.id}
+                        onClick={() => handleReadChapter(chapter.id)}
+                        className="w-full text-left p-4 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all hover:shadow-md group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              Chapter {chapter.attributes.chapter || index + 1}
+                            </div>
+                            {chapter.attributes.title && (
+                              <div className="text-sm text-gray-600 mt-1 line-clamp-1">
+                                {chapter.attributes.title}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-1">
+                              {chapter.attributes.pages} pages
+                            </div>
+                          </div>
+                          <Play className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
                         </div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1">
-                        {chapter.attributes.pages} pages
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>

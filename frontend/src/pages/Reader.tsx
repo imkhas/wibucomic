@@ -7,32 +7,17 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ReaderProps {
   comicId: string;
+  chapterId?: string | null;
   onClose: () => void;
 }
 
-export function Reader({ comicId, onClose }: ReaderProps) {
+export function Reader({ comicId, chapterId, onClose }: ReaderProps) {
   const { user } = useAuth();
   const { chapters, loading: chaptersLoading } = useMangaDexChapters(comicId);
-  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapterId || null);
   const { pages, loading: pagesLoading } = useMangaDexReader(selectedChapterId || '');
 
-  // Auto-select first English chapter
-  useEffect(() => {
-    if (chapters.length > 0 && !selectedChapterId) {
-      const englishChapters = chapters
-        .filter(ch => ch.attributes.translatedLanguage === 'en')
-        .sort((a, b) => {
-          const chapterA = parseFloat(a.attributes.chapter || '0');
-          const chapterB = parseFloat(b.attributes.chapter || '0');
-          return chapterA - chapterB;
-        });
-      
-      if (englishChapters.length > 0) {
-        setSelectedChapterId(englishChapters[0].id);
-      }
-    }
-  }, [chapters, selectedChapterId]);
-
+  // Get sorted English chapters
   const englishChapters = chapters
     .filter(ch => ch.attributes.translatedLanguage === 'en')
     .sort((a, b) => {
@@ -40,6 +25,18 @@ export function Reader({ comicId, onClose }: ReaderProps) {
       const chapterB = parseFloat(b.attributes.chapter || '0');
       return chapterA - chapterB;
     });
+
+  // Auto-select chapter
+  useEffect(() => {
+    if (englishChapters.length > 0 && !selectedChapterId) {
+      // Use provided chapterId or default to first chapter
+      if (chapterId) {
+        setSelectedChapterId(chapterId);
+      } else {
+        setSelectedChapterId(englishChapters[0].id);
+      }
+    }
+  }, [chapters, selectedChapterId, chapterId, englishChapters]);
 
   const currentChapterIndex = englishChapters.findIndex(ch => ch.id === selectedChapterId);
   const currentChapter = englishChapters[currentChapterIndex];
@@ -97,8 +94,11 @@ export function Reader({ comicId, onClose }: ReaderProps) {
   if (pages.length === 0) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-        <div className="text-white text-center">
+        <div className="text-white text-center max-w-md">
           <p className="text-xl mb-4">No pages available for this chapter</p>
+          <p className="text-sm text-gray-400 mb-6">
+            Chapter {currentChapter?.attributes.chapter || 'Unknown'}
+          </p>
           <div className="flex gap-4 justify-center">
             {currentChapterIndex > 0 && (
               <button
@@ -138,27 +138,30 @@ export function Reader({ comicId, onClose }: ReaderProps) {
         onClose={onClose}
         onPageChange={(page) => {
           // Optional: Save reading progress
-          console.log('Page changed:', page);
+          if (user) {
+            console.log('Page changed:', page, 'Chapter:', selectedChapterId);
+          }
         }}
       />
       
       {/* Chapter navigation overlay */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] bg-gray-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-full flex items-center gap-4">
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] bg-gray-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4">
         <button
           onClick={goToPrevChapter}
           disabled={currentChapterIndex === 0}
-          className="flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed hover:text-blue-400 transition-colors"
+          className="flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:text-blue-400 transition-colors"
+          title="Previous Chapter"
         >
           <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm">Prev</span>
+          <span className="text-sm font-medium">Prev</span>
         </button>
         
-        <div className="text-center">
-          <div className="text-sm font-medium">
+        <div className="text-center px-4 border-l border-r border-gray-700">
+          <div className="text-sm font-semibold">
             Chapter {currentChapter?.attributes.chapter || 'Unknown'}
           </div>
           {currentChapter?.attributes.title && (
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-400 max-w-[200px] truncate">
               {currentChapter.attributes.title}
             </div>
           )}
@@ -167,9 +170,10 @@ export function Reader({ comicId, onClose }: ReaderProps) {
         <button
           onClick={goToNextChapter}
           disabled={currentChapterIndex === englishChapters.length - 1}
-          className="flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed hover:text-blue-400 transition-colors"
+          className="flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:text-blue-400 transition-colors"
+          title="Next Chapter"
         >
-          <span className="text-sm">Next</span>
+          <span className="text-sm font-medium">Next</span>
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>

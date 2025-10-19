@@ -1,9 +1,8 @@
-const MANGADEX_API_BASE = 'https://api.mangadex.org';
-const MANGADEX_UPLOADS_BASE = 'https://uploads.mangadex.org';
 import { API_CONFIG, apiRequest, rateLimiter } from '../lib/apiConfig';
 
 const MANGADEX_API_BASE = API_CONFIG.MANGADEX_BASE_URL;
 const MANGADEX_UPLOADS_BASE = API_CONFIG.MANGADEX_UPLOADS_URL;
+
 
 export interface MangaDexManga {
   id: string;

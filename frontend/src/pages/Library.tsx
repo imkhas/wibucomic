@@ -11,6 +11,26 @@ interface LibraryProps {
   onComicClick: (comic: Comic) => void;
 }
 
+interface MangaDexResponse {
+  data: {
+    id: string;
+    attributes: {
+      title: { [key: string]: string };
+      description: { [key: string]: string };
+      status: string;
+      tags: Array<{
+        attributes: {
+          name: { [key: string]: string };
+        };
+      }>;
+    };
+    relationships: Array<{
+      id: string;
+      type: string;
+    }>;
+  };
+}
+
 interface MangaDexManga {
   id: string;
   attributes: {
@@ -78,7 +98,7 @@ export function Library({ onComicClick }: LibraryProps) {
       if (bookmarks.length > 0) {
         const mangaPromises = bookmarks.map(async (bookmark) => {
           try {
-            const response = await MangaDexAPI.getMangaById(bookmark.comic_id);
+            const response = await MangaDexAPI.getMangaById(bookmark.comic_id) as MangaDexResponse;
             const manga = response.data;
 
             // Get cover art
@@ -120,7 +140,7 @@ export function Library({ onComicClick }: LibraryProps) {
       if (progressData && progressData.length > 0) {
         const progressMangaPromises = progressData.map(async (progress) => {
           try {
-            const response = await MangaDexAPI.getMangaById(progress.comic_id);
+            const response = await MangaDexAPI.getMangaById(progress.comic_id) as MangaDexResponse;
             const manga = response.data;
 
             const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
@@ -283,7 +303,7 @@ export function Library({ onComicClick }: LibraryProps) {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock className="w-4 h-4" />
-                        <span>Currently on page {item.current_page}</span>
+                        <span>Currently on chapter {item.current_page}</span>
                       </div>
                       
                       <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -293,7 +313,7 @@ export function Library({ onComicClick }: LibraryProps) {
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${Math.min((item.current_page / item.total_pages) * 100, 100)}%` }}
+                          style={{ width: `${Math.min((item.current_page / (item.total_pages || 100)) * 100, 100)}%` }}
                         />
                       </div>
                     </div>

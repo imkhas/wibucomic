@@ -3,7 +3,6 @@ import { API_CONFIG, apiRequest, rateLimiter } from '../lib/apiConfig';
 const MANGADEX_API_BASE = API_CONFIG.MANGADEX_BASE_URL;
 const MANGADEX_UPLOADS_BASE = API_CONFIG.MANGADEX_UPLOADS_URL;
 
-
 export interface MangaDexManga {
   id: string;
   attributes: {
@@ -38,6 +37,14 @@ export interface MangaDexChapterPages {
     hash: string;
     data: string[];
     dataSaver: string[];
+  };
+}
+
+interface CoverResponse {
+  data: {
+    attributes: {
+      fileName: string;
+    };
   };
 }
 
@@ -88,7 +95,7 @@ export async function getMangaFeed(mangaId: string, limit = 100, offset = 0) {
 
 export async function getChapterPages(chapterId: string): Promise<MangaDexChapterPages> {
   return rateLimiter.add(() =>
-    apiRequest(`${MANGADEX_API_BASE}/at-home/server/${chapterId}`)
+    apiRequest<MangaDexChapterPages>(`${MANGADEX_API_BASE}/at-home/server/${chapterId}`)
   );
 }
 
@@ -108,14 +115,13 @@ export async function getCoverImageUrl(
 ): Promise<string> {
   try {
     const response = await rateLimiter.add(() =>
-      apiRequest(`${MANGADEX_API_BASE}/cover/${coverId}`)
+      apiRequest<CoverResponse>(`${MANGADEX_API_BASE}/cover/${coverId}`)
     );
     
     const fileName = response.data.attributes.fileName;
     return `${MANGADEX_UPLOADS_BASE}/covers/${mangaId}/${fileName}.${size}.jpg`;
   } catch (error) {
     console.error('Failed to fetch cover:', error);
-    // Return placeholder or throw
     throw error;
   }
 }
@@ -177,7 +183,6 @@ export async function getLatestUpdates(limit = 20, offset = 0) {
 export function extractGenreFromTags(tags: MangaDexManga['attributes']['tags']): string | null {
   if (!tags || tags.length === 0) return null;
   
-  // Get first genre tag
   const genreTag = tags.find(tag => {
     const name = tag.attributes?.name?.en?.toLowerCase();
     return name && [
@@ -190,7 +195,6 @@ export function extractGenreFromTags(tags: MangaDexManga['attributes']['tags']):
   return genreTag?.attributes?.name?.en || tags[0]?.attributes?.name?.en || null;
 }
 
-// Helper to extract author name from relationships
 export function extractAuthorName(relationships: MangaDexManga['relationships']): string | null {
   const author = relationships.find(r => r.type === 'author');
   return author?.id || null;

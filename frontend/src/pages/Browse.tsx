@@ -6,6 +6,7 @@ import { ComicGrid } from '../components/ComicGrid';
 import { SearchBar } from '../components/SearchBar';
 import { FilterBar } from '../components/FilterBar';
 import { Comic } from '../types/database';
+import { Loader2 } from 'lucide-react';
 
 interface BrowseProps {
   onComicClick: (comic: Comic) => void;
@@ -15,6 +16,7 @@ export function Browse({ onComicClick }: BrowseProps) {
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [limit, setLimit] = useState(40);
   
   const { user } = useAuth();
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks(user?.id);
@@ -23,7 +25,7 @@ export function Browse({ onComicClick }: BrowseProps) {
   const { comics: searchResults, loading: searchLoading } = useMangaDexSearch(debouncedSearch);
   
   // Use MangaDex popular when browsing without search
-  const { comics: popularComics, loading: popularLoading } = useMangaDexPopular(40);
+  const { comics: popularComics, loading: popularLoading } = useMangaDexPopular(limit);
   
   // Debounce search input
   useEffect(() => {
@@ -59,6 +61,10 @@ export function Browse({ onComicClick }: BrowseProps) {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setSelectedGenre(null); // Reset genre filter when searching
+  };
+
+  const handleLoadMore = () => {
+    setLimit(prev => prev + 20);
   };
 
   return (
@@ -100,6 +106,26 @@ export function Browse({ onComicClick }: BrowseProps) {
             onBookmarkToggle={user ? handleBookmarkToggle : undefined}
             onComicClick={onComicClick}
           />
+
+          {/* Load More Button */}
+          {!debouncedSearch && filteredComics.length > 0 && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={handleLoadMore}
+                disabled={loading}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>Load More Manga</>
+                )}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

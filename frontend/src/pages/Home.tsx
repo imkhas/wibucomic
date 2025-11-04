@@ -3,6 +3,7 @@ import { useMangaDexPopular } from '../hooks/useMangaDex';
 import { useAuth } from '../contexts/AuthContext';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { ComicGrid } from '../components/ComicGrid';
+import { AIRecommendations } from '../components/AIRecommendations';
 import { Comic } from '../types/database';
 
 interface HomeProps {
@@ -62,6 +63,11 @@ export function Home({ onComicClick }: HomeProps) {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* NEW: AI Recommendations Section */}
+      <section>
+        <AIRecommendations onComicClick={onComicClick} />
       </section>
 
       <section>

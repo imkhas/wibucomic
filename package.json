@@ -1,8 +1,10 @@
 {
-  "name": "@wibucomic/source",
+  "name": "@wibucomic/wibucomic",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "build": "vite build"
+  },
   "private": true,
   "workspaces": [
     "apps/*",

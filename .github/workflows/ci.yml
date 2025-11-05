@@ -19,8 +19,12 @@ jobs:
         node-version: '20.x'
         cache: 'npm'
     
+    
     - name: Install dependencies
       run: npm ci
+
+    - name: Install missing dependencies
+      run: npm install lucide-react
     
     - name: Build frontend
       run: npx nx build frontend

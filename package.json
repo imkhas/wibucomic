@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "build": "vite build"
+    "vercel-build": "cd apps/wibucomic && vite build"
   },
   "private": true,
   "workspaces": [

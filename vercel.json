@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "buildCommand": "npx nx build @wibucomic/wibucomic",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite"
+}

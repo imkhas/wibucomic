@@ -29,8 +29,13 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // ADD THIS: Explicitly tell Rollup where to find the entry point
+    rollupOptions: {
+      input: {
+        main: './index.html' // This should point to your index.html
+      }
+    }
   },
-  
   test: {
     name: '@wibucomic/frontend',
     watch: false,

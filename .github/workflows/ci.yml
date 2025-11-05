@@ -28,3 +28,4 @@ jobs:
     
     - name: Build frontend
       run: npx nx build frontend
+

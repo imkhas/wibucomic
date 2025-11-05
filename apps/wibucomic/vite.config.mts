@@ -8,9 +8,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// set frontendDir to the actual frontend folder containing index.html
+const frontendDir = path.resolve(__dirname, '../../frontend');
+
 export default defineConfig({
-  root: __dirname,
-  cacheDir: '../node_modules/.vite/frontend',
+  // use frontend as the Vite root so index.html is resolvable
+  root: frontendDir,
+  cacheDir: path.resolve(__dirname, '../node_modules/.vite/frontend'),
   
   server: {
     port: 4200,
@@ -28,7 +32,7 @@ export default defineConfig({
   ],
   
   build: {
-    outDir: './dist',
+    outDir: path.resolve(frontendDir, 'dist'),
     emptyOutDir: true,
     reportCompressedSize: true,
     commonjsOptions: {
@@ -36,7 +40,7 @@ export default defineConfig({
     },
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html')
+        main: path.resolve(frontendDir, 'index.html')
       }
     }
   },

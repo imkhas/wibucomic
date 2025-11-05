@@ -21,8 +21,8 @@ export default defineConfig({
     react(),
     nxViteTsPaths(),
   ],
-
-      build: {
+  
+  build: {
     outDir: './dist',
     emptyOutDir: true,
     reportCompressedSize: true,
@@ -32,7 +32,7 @@ export default defineConfig({
     // ADD THIS: Explicitly tell Rollup where to find the entry point
     rollupOptions: {
       input: {
-        main: './src/index.html' // This should point to your index.html
+        main: './index.html' // This should point to your index.html
       }
     }
   },

@@ -2,6 +2,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   root: __dirname,
@@ -29,10 +34,9 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
-    // ADD THIS: Explicitly tell Rollup where to find the entry point
     rollupOptions: {
       input: {
-        main: './index.html' // This should point to your index.html
+        main: path.resolve(__dirname, 'index.html')
       }
     }
   },

@@ -12,7 +12,7 @@
   ],
   "dependencies": {
     "@supabase/supabase-js": "^2.74.0",
-    "lucide-react": "^0.263.1",
+    "lucide-react": "^0.294.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-router-dom": "6.29.0"

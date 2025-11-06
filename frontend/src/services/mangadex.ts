@@ -1,6 +1,10 @@
 import { API_CONFIG, apiRequest, rateLimiter } from '../lib/apiConfig';
 
-const MANGADEX_API_BASE = API_CONFIG.MANGADEX_BASE_URL;
+// Use proxy in production, direct API in development
+const MANGADEX_API_BASE = import.meta.env.PROD 
+  ? '/api/mangadex' 
+  : API_CONFIG.MANGADEX_BASE_URL;
+
 const MANGADEX_UPLOADS_BASE = API_CONFIG.MANGADEX_UPLOADS_URL;
 
 export interface MangaDexManga {
@@ -48,6 +52,23 @@ interface CoverResponse {
   };
 }
 
+function buildProxyUrl(path: string, params?: URLSearchParams): string {
+  if (import.meta.env.PROD) {
+    // In production, use the proxy
+    const url = new URL('/api/mangadex', window.location.origin);
+    url.searchParams.set('path', path);
+    if (params) {
+      params.forEach((value, key) => {
+        url.searchParams.append(key, value);
+      });
+    }
+    return url.toString();
+  } else {
+    // In development, use direct API
+    return `${API_CONFIG.MANGADEX_BASE_URL}/${path}${params ? `?${params}` : ''}`;
+  }
+}
+
 export async function searchManga(query: string, limit = 20, offset = 0) {
   const params = new URLSearchParams({
     title: query,
@@ -61,9 +82,8 @@ export async function searchManga(query: string, limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('order[relevance]', 'desc');
 
-  return rateLimiter.add(() => 
-    apiRequest(`${MANGADEX_API_BASE}/manga?${params}`)
-  );
+  const url = buildProxyUrl('manga', params);
+  return rateLimiter.add(() => apiRequest(url));
 }
 
 export async function getMangaById(id: string) {
@@ -72,9 +92,8 @@ export async function getMangaById(id: string) {
   params.append('includes[]', 'author');
   params.append('includes[]', 'artist');
 
-  return rateLimiter.add(() =>
-    apiRequest(`${MANGADEX_API_BASE}/manga/${id}?${params}`)
-  );
+  const url = buildProxyUrl(`manga/${id}`, params);
+  return rateLimiter.add(() => apiRequest(url));
 }
 
 export async function getMangaFeed(mangaId: string, limit = 100, offset = 0) {
@@ -88,15 +107,13 @@ export async function getMangaFeed(mangaId: string, limit = 100, offset = 0) {
 
   params.append('includes[]', 'scanlation_group');
 
-  return rateLimiter.add(() =>
-    apiRequest(`${MANGADEX_API_BASE}/manga/${mangaId}/feed?${params}`)
-  );
+  const url = buildProxyUrl(`manga/${mangaId}/feed`, params);
+  return rateLimiter.add(() => apiRequest(url));
 }
 
 export async function getChapterPages(chapterId: string): Promise<MangaDexChapterPages> {
-  return rateLimiter.add(() =>
-    apiRequest<MangaDexChapterPages>(`${MANGADEX_API_BASE}/at-home/server/${chapterId}`)
-  );
+  const url = buildProxyUrl(`at-home/server/${chapterId}`);
+  return rateLimiter.add(() => apiRequest<MangaDexChapterPages>(url));
 }
 
 export function getChapterImageUrl(
@@ -114,8 +131,9 @@ export async function getCoverImageUrl(
   size: '256' | '512' = '512'
 ): Promise<string> {
   try {
+    const url = buildProxyUrl(`cover/${coverId}`);
     const response = await rateLimiter.add(() =>
-      apiRequest<CoverResponse>(`${MANGADEX_API_BASE}/cover/${coverId}`)
+      apiRequest<CoverResponse>(url)
     );
     
     const fileName = response.data.attributes.fileName;
@@ -139,9 +157,8 @@ export async function getPopularManga(limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('hasAvailableChapters', 'true');
 
-  return rateLimiter.add(() =>
-    apiRequest(`${MANGADEX_API_BASE}/manga?${params}`)
-  );
+  const url = buildProxyUrl('manga', params);
+  return rateLimiter.add(() => apiRequest(url));
 }
 
 export async function getRecentlyAddedManga(limit = 20, offset = 0) {
@@ -157,9 +174,8 @@ export async function getRecentlyAddedManga(limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('hasAvailableChapters', 'true');
 
-  return rateLimiter.add(() =>
-    apiRequest(`${MANGADEX_API_BASE}/manga?${params}`)
-  );
+  const url = buildProxyUrl('manga', params);
+  return rateLimiter.add(() => apiRequest(url));
 }
 
 export async function getLatestUpdates(limit = 20, offset = 0) {
@@ -175,9 +191,8 @@ export async function getLatestUpdates(limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('hasAvailableChapters', 'true');
 
-  return rateLimiter.add(() =>
-    apiRequest(`${MANGADEX_API_BASE}/manga?${params}`)
-  );
+  const url = buildProxyUrl('manga', params);
+  return rateLimiter.add(() => apiRequest(url));
 }
 
 export function extractGenreFromTags(tags: MangaDexManga['attributes']['tags']): string | null {

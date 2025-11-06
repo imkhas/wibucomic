@@ -1,6 +1,7 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -8,16 +9,23 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  root: '.',
-  cacheDir: './node_modules/.vite',
+  root: __dirname,
+  cacheDir: '../node_modules/.vite/frontend',
   
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+  server: {
+    port: 4200,
+    host: 'localhost',
   },
   
-  plugins: [react()],
+  preview: {
+    port: 4200,
+    host: 'localhost',
+  },
+  
+  plugins: [
+    react(),
+    nxViteTsPaths(),
+  ],
   
   build: {
     outDir: './dist',
@@ -27,19 +35,21 @@ export default defineConfig({
       transformMixedEsModules: true,
     },
     rollupOptions: {
-      input: './index.html',
-      output: {
-        manualChunks: undefined,
-      },
-    },
+      input: {
+        main: path.resolve(__dirname, 'index.html')
+      }
+    }
   },
-  
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'lucide-react',
-      '@supabase/supabase-js',
-    ],
+  test: {
+    name: '@wibucomic/frontend',
+    watch: false,
+    globals: true,
+    environment: 'jsdom',
+    include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    reporters: ['default'],
+    coverage: {
+      reportsDirectory: './test-output/vitest/coverage',
+      provider: 'v8',
+    },
   },
 });

@@ -1,0 +1,14 @@
+[build]
+  command = "npm install --legacy-peer-deps && cd frontend && npm install --legacy-peer-deps && npx vite build"
+  publish = "frontend/dist"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

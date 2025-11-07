@@ -1,8 +1,10 @@
 import { API_CONFIG, apiRequest, rateLimiter } from '../lib/apiConfig';
 
 // Use proxy in production, direct API in development
+// For Vercel: '/api/mangadex'
+// For Netlify: '/.netlify/functions/mangadex'
 const MANGADEX_API_BASE = import.meta.env.PROD 
-  ? '/api/mangadex' 
+  ? '/.netlify/functions/mangadex' 
   : API_CONFIG.MANGADEX_BASE_URL;
 
 const MANGADEX_UPLOADS_BASE = API_CONFIG.MANGADEX_UPLOADS_URL;

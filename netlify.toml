@@ -1,13 +1,19 @@
 [build]
-  command = "npm install --legacy-peer-deps && cd frontend && npm install --legacy-peer-deps && npx vite build"
+  command = "npm install --legacy-peer-deps && cd frontend && npm install --legacy-peer-deps && npm run build"
   publish = "frontend/dist"
-  functions = "netlify/functions"
 
+[functions]
+  # This tells Netlify to use esbuild for TypeScript
+  node_bundler = "esbuild"
+  directory = "netlify/functions"
+
+# Redirect function calls
 [[redirects]]
   from = "/.netlify/functions/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
+# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"

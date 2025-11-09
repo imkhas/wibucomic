@@ -1,8 +1,6 @@
 import { API_CONFIG, apiRequest, rateLimiter } from '../lib/apiConfig';
 
 // Use proxy in production, direct API in development
-// For Vercel: '/api/mangadex'
-// For Netlify: '/.netlify/functions/mangadex'
 const MANGADEX_API_BASE = import.meta.env.PROD 
   ? '/.netlify/functions/mangadex' 
   : API_CONFIG.MANGADEX_BASE_URL;
@@ -56,18 +54,21 @@ interface CoverResponse {
 
 function buildProxyUrl(path: string, params?: URLSearchParams): string {
   if (import.meta.env.PROD) {
-    // In production, use the proxy
-    const url = new URL('/api/mangadex', window.location.origin);
-    url.searchParams.set('path', path);
+    // In production, use the Netlify function proxy
+    const functionUrl = new URL(MANGADEX_API_BASE, window.location.origin);
+    functionUrl.searchParams.set('path', path);
+    
     if (params) {
       params.forEach((value, key) => {
-        url.searchParams.append(key, value);
+        functionUrl.searchParams.set(key, value);
       });
     }
-    return url.toString();
+    
+    console.log('Calling Netlify function:', functionUrl.toString());
+    return functionUrl.toString();
   } else {
-    // In development, use direct API
-    return `${API_CONFIG.MANGADEX_BASE_URL}/${path}${params ? `?${params}` : ''}`;
+    // In development, use direct MangaDex API
+    return `${MANGADEX_API_BASE}/${path}${params ? `?${params}` : ''}`;
   }
 }
 

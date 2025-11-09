@@ -1,3 +1,5 @@
+// frontend/src/lib/apiConfig.ts
+
 // API Configuration
 export const API_CONFIG = {
   MANGADEX_BASE_URL: 'https://api.mangadex.org',
@@ -70,6 +72,16 @@ export async function apiRequest<T>(
     });
 
     clearTimeout(timeoutId);
+
+    // Check content type before parsing
+    const contentType = response.headers.get('content-type');
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Expected JSON but got:', contentType);
+      console.error('Response preview:', text.substring(0, 500));
+      throw new Error(`Invalid response type: ${contentType}. Expected JSON.`);
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);

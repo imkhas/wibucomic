@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "vercel-build": "cd frontend && npm install && vite build"
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "netlify-dev": "netlify dev"
   },
   "private": true,
   "workspaces": [
@@ -11,13 +14,13 @@
     "frontend"
   ],
   "dependencies": {
+    "@netlify/functions": "^2.8.0",
     "@supabase/supabase-js": "^2.74.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-router-dom": "6.29.0"
   },
   "devDependencies": {
-    "@netlify/functions": "^2.0.0",
     "@nx/eslint": "^22.0.2",
     "@nx/eslint-plugin": "^22.0.2",
     "@nx/js": "^22.0.2",
@@ -44,6 +47,7 @@
     "eslint-plugin-react": "7.37.2",
     "eslint-plugin-react-hooks": "5.1.0",
     "jsdom": "~25.0.1",
+    "netlify-cli": "^17.0.0",
     "nx": "^22.0.2",
     "postcss": "8.4.38",
     "prettier": "^2.6.2",

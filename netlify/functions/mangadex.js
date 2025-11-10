@@ -1,10 +1,10 @@
 exports.handler = async (event) => {
-  // IMPORTANT: Content-Type must be application/json
+
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json', // ← This is critical!
+    'Content-Type': 'application/json', 
     'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
     'X-Content-Type-Options': 'nosniff',
   };
@@ -48,7 +48,7 @@ exports.handler = async (event) => {
       console.error('MangaDex error:', response.status);
       return {
         statusCode: response.status,
-        headers, // ← Include headers here
+        headers, 
         body: JSON.stringify({ error: `MangaDex returned ${response.status}` }),
       };
     }
@@ -57,14 +57,14 @@ exports.handler = async (event) => {
     
     return {
       statusCode: 200,
-      headers, // ← Include headers here too
+      headers, 
       body: JSON.stringify(data),
     };
   } catch (error) {
     console.error('Function error:', error);
     return {
       statusCode: 500,
-      headers, // ← And here
+      headers, 
       body: JSON.stringify({ 
         error: 'Proxy failed',
         message: error.message 

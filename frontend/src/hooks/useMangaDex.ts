@@ -17,6 +17,9 @@ interface MangaDexManga {
   relationships: Array<{
     id: string;
     type: string;
+    attributes?: {
+      fileName?: string;
+    };
   }>;
 }
 
@@ -41,6 +44,21 @@ function convertMangaDexToComic(manga: MangaDexManga, coverUrl?: string): Comic 
   };
 }
 
+// Helper function to get cover URL directly from manga data
+function getCoverUrlFromManga(manga: MangaDexManga): string | undefined {
+  const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
+  
+  if (!coverRelation) return undefined;
+  
+  // Check if fileName is already in the relationship (includes[] parameter)
+  if (coverRelation.attributes?.fileName) {
+    const fileName = coverRelation.attributes.fileName;
+    return `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.512.jpg`;
+  }
+  
+  return undefined;
+}
+
 export function useMangaDexSearch(query: string) {
   const [comics, setComics] = useState<Comic[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,14 +80,18 @@ export function useMangaDexSearch(query: string) {
 
       const mangaWithCovers = await Promise.all(
         response.data.map(async (manga: MangaDexManga) => {
-          const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
-          let coverUrl: string | undefined;
+          // Try to get cover from included data first
+          let coverUrl = getCoverUrlFromManga(manga);
 
-          if (coverRelation) {
-            try {
-              coverUrl = await MangaDexAPI.getCoverImageUrl(manga.id, coverRelation.id);
-            } catch (err) {
-              console.error('Failed to fetch cover for', manga.id);
+          // If not available, fetch it separately
+          if (!coverUrl) {
+            const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
+            if (coverRelation) {
+              try {
+                coverUrl = await MangaDexAPI.getCoverImageUrl(manga.id, coverRelation.id);
+              } catch (err) {
+                console.error('Failed to fetch cover for', manga.id, err);
+              }
             }
           }
 
@@ -104,16 +126,22 @@ export function useMangaDexPopular(limit = 20) {
       setError(null);
       const response = await MangaDexAPI.getPopularManga(limit);
 
+      console.log('First manga response:', response.data[0]); // Debug log
+
       const mangaWithCovers = await Promise.all(
         response.data.map(async (manga: MangaDexManga) => {
-          const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
-          let coverUrl: string | undefined;
+          // Try to get cover from included data first
+          let coverUrl = getCoverUrlFromManga(manga);
 
-          if (coverRelation) {
-            try {
-              coverUrl = await MangaDexAPI.getCoverImageUrl(manga.id, coverRelation.id);
-            } catch (err) {
-              console.error('Failed to fetch cover for', manga.id);
+          // If not available, fetch it separately
+          if (!coverUrl) {
+            const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
+            if (coverRelation) {
+              try {
+                coverUrl = await MangaDexAPI.getCoverImageUrl(manga.id, coverRelation.id);
+              } catch (err) {
+                console.error('Failed to fetch cover for', manga.id, err);
+              }
             }
           }
 
@@ -123,7 +151,9 @@ export function useMangaDexPopular(limit = 20) {
 
       setComics(mangaWithCovers);
     } catch (err) {
+      console.error('Error in fetchPopular:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch popular manga');
+      setComics([]);
     } finally {
       setLoading(false);
     }
@@ -150,14 +180,18 @@ export function useMangaDexManga(id: string) {
       const response = await MangaDexAPI.getMangaById(id);
       const manga = response.data;
 
-      const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
-      let coverUrl: string | undefined;
+      // Try direct cover URL first
+      let coverUrl = getCoverUrlFromManga(manga);
 
-      if (coverRelation) {
-        try {
-          coverUrl = await MangaDexAPI.getCoverImageUrl(manga.id, coverRelation.id);
-        } catch (err) {
-          console.error('Failed to fetch cover');
+      // Fallback to separate fetch
+      if (!coverUrl) {
+        const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art');
+        if (coverRelation) {
+          try {
+            coverUrl = await MangaDexAPI.getCoverImageUrl(manga.id, coverRelation.id);
+          } catch (err) {
+            console.error('Failed to fetch cover', err);
+          }
         }
       }
 
@@ -169,6 +203,7 @@ export function useMangaDexManga(id: string) {
 
       setComic(convertedComic);
     } catch (err) {
+      console.error('Error in fetchManga:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch manga');
     } finally {
       setLoading(false);
@@ -196,6 +231,7 @@ export function useMangaDexChapters(mangaId: string) {
       const response = await MangaDexAPI.getMangaFeed(mangaId);
       setChapters(response.data);
     } catch (err) {
+      console.error('Error in fetchChapters:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch chapters');
     } finally {
       setLoading(false);

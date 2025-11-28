@@ -3,9 +3,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')!
 const SUPABASE_URL = Deno.env.get('DUPABASE_URL')!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('DUPABASE_SERVICE_ROLE_KEY')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const supabaseClient = createClient(DUPABASE_URL, DUPABASE_SERVICE_ROLE_KEY)
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface RequestBody {
   userId: string

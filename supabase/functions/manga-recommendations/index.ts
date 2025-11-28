@@ -1,13 +1,8 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-// Setup type definitions for built-in Supabase Runtime APIs
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')!
-const SUPABASE_URL = Deno.env.get('DUPABASE_URL')!
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -33,16 +28,23 @@ interface UserContext {
   readingPatterns: string
 }
 
+interface MangaDexManga {
+  id: string
+  title: string
+  coverUrl?: string
+  status: string
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      }
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -51,7 +53,13 @@ serve(async (req) => {
     if (!userId || !prompt) {
       return new Response(
         JSON.stringify({ error: 'Missing userId or prompt' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 400, 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders 
+          } 
+        }
       )
     }
 
@@ -71,7 +79,7 @@ serve(async (req) => {
     const recommendations = await getGeminiRecommendations(systemPrompt, prompt)
 
     // Optionally search MangaDex for recommended titles
-    let mangaResults = []
+    let mangaResults: MangaDexManga[] = []
     if (includeMangaDex) {
       mangaResults = await searchMangaDexFromRecommendations(recommendations)
     }
@@ -91,20 +99,23 @@ serve(async (req) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...corsHeaders
         }
       }
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in manga-recommendations:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        message: error.message 
+      }),
       { 
         status: 500, 
         headers: { 
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...corsHeaders
         } 
       }
     )
@@ -114,28 +125,37 @@ serve(async (req) => {
 async function getUserContext(userId: string): Promise<UserContext> {
   try {
     // Fetch bookmarks
-    const { data: bookmarks } = await supabaseClient
+    const { data: bookmarks, error: bookmarksError } = await supabaseClient
       .from('bookmarks')
       .select('comic_id, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20)
 
+    if (bookmarksError) {
+      console.error('Error fetching bookmarks:', bookmarksError)
+      throw bookmarksError
+    }
+
     // Fetch reading progress
-    const { data: progress } = await supabaseClient
+    const { data: progress, error: progressError } = await supabaseClient
       .from('reading_progress')
       .select('comic_id, current_page, last_read_at')
       .eq('user_id', userId)
       .order('last_read_at', { ascending: false })
       .limit(10)
 
+    if (progressError) {
+      console.error('Error fetching progress:', progressError)
+    }
+
     // Fetch manga details from MangaDex for bookmarked items
-    const recentManga = []
+    const recentManga: Array<{ title: string; genre: string | null }> = []
     const genres: string[] = []
 
     if (bookmarks && bookmarks.length > 0) {
-      // Limit to first 5 for API efficiency
-      for (const bookmark of bookmarks.slice(0, 5)) {
+      // Use Promise.all for parallel requests to improve performance
+      const mangaPromises = bookmarks.slice(0, 5).map(async (bookmark) => {
         try {
           const response = await fetch(
             `https://api.mangadex.org/manga/${bookmark.comic_id}?includes[]=cover_art`
@@ -146,13 +166,21 @@ async function getUserContext(userId: string): Promise<UserContext> {
             const tags = data.data.attributes.tags || []
             const genre = extractGenreFromTags(tags)
             
-            recentManga.push({ title, genre })
-            if (genre) genres.push(genre)
+            return { title, genre }
           }
         } catch (err) {
-          console.error('Failed to fetch manga:', bookmark.comic_id)
+          console.error('Failed to fetch manga:', bookmark.comic_id, err)
         }
-      }
+        return null
+      })
+
+      const mangaResults = await Promise.all(mangaPromises)
+      mangaResults.forEach(result => {
+        if (result) {
+          recentManga.push(result)
+          if (result.genre) genres.push(result.genre)
+        }
+      })
     }
 
     // Calculate favorite genres (most frequent)
@@ -214,7 +242,7 @@ function buildSystemPrompt(userContext: UserContext, conversationContext: string
 
 USER PROFILE:
 - Favorite Genres: ${userContext.favoriteGenres.join(', ')}
-- Recently Read: ${userContext.recentManga.map(m => `"${m.title}" (${m.genre})`).join(', ') || 'None yet'}
+- Recently Read: ${userContext.recentManga.map(m => `"${m.title}" (${m.genre || 'unknown genre'})`).join(', ') || 'None yet'}
 - Total Bookmarks: ${userContext.totalBookmarks}
 - Reading Pattern: ${userContext.readingPatterns}
 - Preference: ${userContext.preferredStatus} manga
@@ -264,65 +292,87 @@ async function getGeminiRecommendations(systemPrompt: string, userPrompt: string
   )
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.statusText}`)
+    const errorText = await response.text()
+    console.error('Gemini API error:', response.status, errorText)
+    throw new Error(`Gemini API error: ${response.status} ${response.statusText}`)
   }
 
   const data = await response.json()
+  
+  if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+    console.error('Invalid Gemini API response:', data)
+    throw new Error('Invalid response from Gemini API')
+  }
+  
   return data.candidates[0].content.parts[0].text
 }
 
-async function searchMangaDexFromRecommendations(recommendations: string): Promise<any[]> {
+async function searchMangaDexFromRecommendations(recommendations: string): Promise<MangaDexManga[]> {
   // Extract manga titles from recommendations (titles in quotes)
   const titlePattern = /"([^"]+)"/g
   const matches = [...recommendations.matchAll(titlePattern)]
   const titles = matches.map(m => m[1]).slice(0, 5) // Limit to 5
 
-  const results = []
-
-  for (const title of titles) {
+  const searchPromises = titles.map(async (title) => {
     try {
       const response = await fetch(
-        `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=1&includes[]=cover_art`
+        `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=1&includes[]=cover_art`,
+        {
+          headers: {
+            'User-Agent': 'MangaApp/1.0'
+          }
+        }
       )
       
-      if (response.ok) {
-        const data = await response.json()
-        if (data.data.length > 0) {
-          const manga = data.data[0]
-          
-          // Get cover art
-          const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art')
-          let coverUrl = null
-          
-          if (coverRelation) {
-            const coverId = coverRelation.id
-            const coverResponse = await fetch(`https://api.mangadex.org/cover/${coverId}`)
-            if (coverResponse.ok) {
-              const coverData = await coverResponse.json()
-              const fileName = coverData.data.attributes.fileName
-              coverUrl = `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.512.jpg`
-            }
-          }
+      if (!response.ok) {
+        console.warn(`MangaDex API error for "${title}":`, response.status)
+        return null
+      }
 
-          results.push({
-            id: manga.id,
-            title: manga.attributes.title.en || Object.values(manga.attributes.title)[0],
-            coverUrl,
-            status: manga.attributes.status
-          })
+      const data = await response.json()
+      if (data.data.length === 0) {
+        return null
+      }
+
+      const manga = data.data[0]
+      
+      // Get cover art
+      const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art')
+      let coverUrl = null
+      
+      if (coverRelation) {
+        const coverId = coverRelation.id
+        try {
+          const coverResponse = await fetch(`https://api.mangadex.org/cover/${coverId}`)
+          if (coverResponse.ok) {
+            const coverData = await coverResponse.json()
+            const fileName = coverData.data.attributes.fileName
+            coverUrl = `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.512.jpg`
+          }
+        } catch (err) {
+          console.error('Failed to fetch cover for:', title, err)
         }
       }
-    } catch (err) {
-      console.error('Failed to search MangaDex for:', title)
-    }
-  }
 
-  return results
+      return {
+        id: manga.id,
+        title: manga.attributes.title.en || Object.values(manga.attributes.title)[0],
+        coverUrl: coverUrl || undefined,
+        status: manga.attributes.status
+      } as MangaDexManga
+    } catch (err) {
+      console.error('Failed to search MangaDex for:', title, err)
+      return null
+    }
+  })
+
+  const results = await Promise.all(searchPromises)
+  return results.filter((result): result is MangaDexManga => result !== null)
 }
 
 async function saveChatHistory(userId: string, userMessage: string, assistantMessage: string) {
   try {
-    const { data: existing } = await supabaseClient
+    const { data: existing, error: fetchError } = await supabaseClient
       .from('ai_chat_history')
       .select('id, messages')
       .eq('user_id', userId)
@@ -330,42 +380,46 @@ async function saveChatHistory(userId: string, userMessage: string, assistantMes
       .limit(1)
       .single()
 
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows
+      console.error('Error fetching chat history:', fetchError)
+      return
+    }
+
     const newMessages = [
-      { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
-      { role: 'assistant', content: assistantMessage, timestamp: new Date().toISOString() }
+      { role: 'user' as const, content: userMessage, timestamp: new Date().toISOString() },
+      { role: 'assistant' as const, content: assistantMessage, timestamp: new Date().toISOString() }
     ]
 
     if (existing) {
       // Append to existing conversation
       const updatedMessages = [...(existing.messages || []), ...newMessages].slice(-20) // Keep last 20 messages
 
-      await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('ai_chat_history')
-        .update({ messages: updatedMessages, updated_at: new Date().toISOString() })
+        .update({ 
+          messages: updatedMessages, 
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', existing.id)
+
+      if (updateError) {
+        console.error('Error updating chat history:', updateError)
+      }
     } else {
       // Create new conversation
-      await supabaseClient
+      const { error: insertError } = await supabaseClient
         .from('ai_chat_history')
         .insert({
           user_id: userId,
           messages: newMessages
         })
+
+      if (insertError) {
+        console.error('Error inserting chat history:', insertError)
+      }
     }
   } catch (error) {
     console.error('Failed to save chat history:', error)
     // Non-critical, don't throw
   }
 }
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/manga-recommendations' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/

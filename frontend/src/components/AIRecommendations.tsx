@@ -47,14 +47,17 @@ export function AIRecommendations({ onComicClick }: AIRecommendationsProps) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // Changed from .single() to .maybeSingle()
 
+      // maybeSingle() returns null if no rows, so no error
       if (error) throw error;
+      
       if (data && data.messages) {
         setMessages(data.messages.slice(-10)); // Show last 10 messages
       }
     } catch (err) {
       console.error('Failed to load history:', err);
+      // Don't show error to user - it's fine if there's no history yet
     }
   };
 
@@ -89,11 +92,18 @@ export function AIRecommendations({ onComicClick }: AIRecommendationsProps) {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to get recommendations');
+      }
+
+      if (!data) {
+        throw new Error('No data returned from recommendations');
+      }
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.recommendations,
+        content: data.recommendations || 'No recommendations available',
         timestamp: new Date().toISOString()
       };
 
@@ -103,7 +113,18 @@ export function AIRecommendations({ onComicClick }: AIRecommendationsProps) {
       toast.success('Recommendations generated!');
     } catch (err: any) {
       console.error('Failed to get recommendations:', err);
-      toast.error(err.message || 'Failed to get recommendations');
+      
+      // More specific error messages
+      let errorMessage = 'Failed to get recommendations';
+      if (err.message?.includes('Edge Function returned a non-2xx')) {
+        errorMessage = 'AI service is currently unavailable. Please try again later.';
+      } else if (err.message?.includes('Failed to fetch')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      toast.error(errorMessage);
       
       // Remove the user message if request failed
       setMessages(prev => prev.slice(0, -1));

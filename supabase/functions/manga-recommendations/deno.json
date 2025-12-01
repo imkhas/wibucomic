@@ -1,3 +1,15 @@
 {
-  "imports": {}
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.168.0/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3"
+  },
+  "tasks": {
+    "start": "deno run --allow-net --allow-env supabase/functions/manga-recommendations/index.ts"
+  }
 }

@@ -1,7 +1,10 @@
 import { API_CONFIG, apiRequest, rateLimiter } from '../lib/apiConfig';
 
-// Always use direct API - proxy has CORS issues
-const MANGADEX_API_BASE = API_CONFIG.MANGADEX_BASE_URL;
+// Use proxy in production, direct API in development
+const MANGADEX_API_BASE = import.meta.env.PROD 
+  ? '/.netlify/functions/mangadex' 
+  : API_CONFIG.MANGADEX_BASE_URL;
+
 const MANGADEX_UPLOADS_BASE = API_CONFIG.MANGADEX_UPLOADS_URL;
 
 export interface MangaDexManga {
@@ -19,9 +22,6 @@ export interface MangaDexManga {
   relationships: Array<{
     id: string;
     type: string;
-    attributes?: {
-      fileName?: string;
-    };
   }>;
 }
 
@@ -52,8 +52,24 @@ interface CoverResponse {
   };
 }
 
-function buildUrl(path: string, params?: URLSearchParams): string {
-  return `${MANGADEX_API_BASE}/${path}${params ? `?${params}` : ''}`;
+function buildProxyUrl(path: string, params?: URLSearchParams): string {
+  if (import.meta.env.PROD) {
+    // In production, use the Netlify function proxy
+    const functionUrl = new URL(MANGADEX_API_BASE, window.location.origin);
+    functionUrl.searchParams.set('path', path);
+    
+    if (params) {
+      params.forEach((value, key) => {
+        functionUrl.searchParams.set(key, value);
+      });
+    }
+    
+    console.log('Calling Netlify function:', functionUrl.toString());
+    return functionUrl.toString();
+  } else {
+    // In development, use direct MangaDex API
+    return `${MANGADEX_API_BASE}/${path}${params ? `?${params}` : ''}`;
+  }
 }
 
 export async function searchManga(query: string, limit = 20, offset = 0) {
@@ -69,7 +85,7 @@ export async function searchManga(query: string, limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('order[relevance]', 'desc');
 
-  const url = buildUrl('manga', params);
+  const url = buildProxyUrl('manga', params);
   return rateLimiter.add(() => apiRequest(url));
 }
 
@@ -79,7 +95,7 @@ export async function getMangaById(id: string) {
   params.append('includes[]', 'author');
   params.append('includes[]', 'artist');
 
-  const url = buildUrl(`manga/${id}`, params);
+  const url = buildProxyUrl(`manga/${id}`, params);
   return rateLimiter.add(() => apiRequest(url));
 }
 
@@ -94,12 +110,12 @@ export async function getMangaFeed(mangaId: string, limit = 100, offset = 0) {
 
   params.append('includes[]', 'scanlation_group');
 
-  const url = buildUrl(`manga/${mangaId}/feed`, params);
+  const url = buildProxyUrl(`manga/${mangaId}/feed`, params);
   return rateLimiter.add(() => apiRequest(url));
 }
 
 export async function getChapterPages(chapterId: string): Promise<MangaDexChapterPages> {
-  const url = buildUrl(`at-home/server/${chapterId}`);
+  const url = buildProxyUrl(`at-home/server/${chapterId}`);
   return rateLimiter.add(() => apiRequest<MangaDexChapterPages>(url));
 }
 
@@ -118,7 +134,7 @@ export async function getCoverImageUrl(
   size: '256' | '512' = '512'
 ): Promise<string> {
   try {
-    const url = buildUrl(`cover/${coverId}`);
+    const url = buildProxyUrl(`cover/${coverId}`);
     const response = await rateLimiter.add(() =>
       apiRequest<CoverResponse>(url)
     );
@@ -144,7 +160,7 @@ export async function getPopularManga(limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('hasAvailableChapters', 'true');
 
-  const url = buildUrl('manga', params);
+  const url = buildProxyUrl('manga', params);
   return rateLimiter.add(() => apiRequest(url));
 }
 
@@ -161,7 +177,7 @@ export async function getRecentlyAddedManga(limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('hasAvailableChapters', 'true');
 
-  const url = buildUrl('manga', params);
+  const url = buildProxyUrl('manga', params);
   return rateLimiter.add(() => apiRequest(url));
 }
 
@@ -178,7 +194,7 @@ export async function getLatestUpdates(limit = 20, offset = 0) {
   params.append('contentRating[]', 'suggestive');
   params.append('hasAvailableChapters', 'true');
 
-  const url = buildUrl('manga', params);
+  const url = buildProxyUrl('manga', params);
   return rateLimiter.add(() => apiRequest(url));
 }
 

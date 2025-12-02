@@ -248,7 +248,7 @@ Format your response clearly with each manga recommendation.`
 
 async function getGeminiRecommendations(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -275,7 +275,37 @@ async function getGeminiRecommendations(apiKey: string, systemPrompt: string, us
   }
 
   const data = await response.json()
-  return data.candidates[0].content.parts[0].text
+  
+  // Debug logging to help identify response structure
+  console.log('Gemini API response structure:', {
+    hasData: !!data,
+    keys: data ? Object.keys(data) : [],
+    hasCandidates: data && Array.isArray(data.candidates),
+    candidatesLength: data?.candidates?.length || 0,
+    firstCandidate: data?.candidates?.[0] ? 'present' : 'missing'
+  })
+  
+  // Safe access with validation
+  if (!data || !data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+    console.error('Invalid Gemini response - no candidates found:', data)
+    throw new Error('AI service returned no recommendations. Please try again.')
+  }
+  
+  const candidate = data.candidates[0]
+  
+  if (!candidate.content || !candidate.content.parts || !Array.isArray(candidate.content.parts) || candidate.content.parts.length === 0) {
+    console.error('Invalid Gemini candidate structure:', candidate)
+    throw new Error('AI service returned invalid response format.')
+  }
+  
+  const text = candidate.content.parts[0].text
+  
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    console.error('Empty text in Gemini response')
+    throw new Error('AI returned empty response. Please try again.')
+  }
+  
+  return text
 }
 
 async function searchMangaDexFromRecommendations(recommendations: string): Promise<any[]> {
@@ -294,10 +324,10 @@ async function searchMangaDexFromRecommendations(recommendations: string): Promi
       
       if (response.ok) {
         const data = await response.json()
-        if (data.data.length > 0) {
+        if (data.data && data.data.length > 0) {
           const manga = data.data[0]
           
-          const coverRelation = manga.relationships.find((r: any) => r.type === 'cover_art')
+          const coverRelation = manga.relationships?.find((r: any) => r.type === 'cover_art')
           let coverUrl = null
           
           if (coverRelation) {
@@ -308,16 +338,18 @@ async function searchMangaDexFromRecommendations(recommendations: string): Promi
             )
             if (coverResponse.ok) {
               const coverData = await coverResponse.json()
-              const fileName = coverData.data.attributes.fileName
-              coverUrl = `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.512.jpg`
+              const fileName = coverData.data?.attributes?.fileName
+              if (fileName && manga.id) {
+                coverUrl = `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.512.jpg`
+              }
             }
           }
 
           results.push({
             id: manga.id,
-            title: manga.attributes.title.en || Object.values(manga.attributes.title)[0],
+            title: manga.attributes?.title?.en || (manga.attributes?.title ? Object.values(manga.attributes.title)[0] : 'Unknown Title'),
             coverUrl,
-            status: manga.attributes.status
+            status: manga.attributes?.status || 'unknown'
           })
         }
       }

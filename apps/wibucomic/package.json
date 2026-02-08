@@ -1,6 +1,0 @@
-{
-  "name": "@wibucomic/wibucomic",
-  "scripts": {
-    "build": "vite build"
-  }
-}

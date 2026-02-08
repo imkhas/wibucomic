@@ -1,48 +1,13 @@
 [build]
-  command = "npm install --legacy-peer-deps && cd frontend && npm install --legacy-peer-deps && npm run build"
-  publish = "frontend/dist"
+  command = "npm run build"
+  publish = "dist"
 
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Optimize caching for static assets
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    X-Content-Type-Options = "nosniff"
-
-# HTML files - don't cache (for SPA routing)
-[[headers]]
-  for = "/*.html"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
-    X-Content-Type-Options = "nosniff"
-
-# Root index.html
-[[headers]]
-  for = "/"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
-    X-Content-Type-Options = "nosniff"
-
-# API function - short cache
-[[headers]]
-  for = "/.netlify/functions/*"
-  [headers.values]
-    Cache-Control = "public, max-age=300, stale-while-revalidate=600"
-    X-Content-Type-Options = "nosniff"
-
-# IMPORTANT: Function redirects must come BEFORE SPA fallback
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
-# SPA fallback - must be LAST
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[dev]
+  command = "npm run dev"
+  port = 8888
+  targetPort = 4200
+  publish = "dist"

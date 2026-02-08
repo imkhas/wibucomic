@@ -1,19 +1,9 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compileOnSave": false,
   "files": [],
+  "include": [],
   "references": [
     {
-      "path": "./apps/wibucomic-e2e"
-    },
-    {
-      "path": "./apps/wibucomic"
-    },
-    {
-      "path": "./frontend-e2e"
-    },
-    {
-      "path": "./frontend"
+      "path": "./tsconfig.app.json"
     }
   ]
 }
